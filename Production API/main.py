@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
+
 import tensorflow as tf
 import numpy as np
 import keras
@@ -30,6 +33,21 @@ except Exception as e:
     raise RuntimeError(f"Failed to load the model from {model_path}: {e}")
 
 
+# Mount the static files directory
+app.mount("/static", StaticFiles(directory="templates"), name="static")
+
+# Define the index endpoint
+@app.get("/", response_class=HTMLResponse)
+async def read_index():
+    try:
+        with open("templates/index.html", "r") as file:
+            html_content = file.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="index.html not found")
+
+
+
 
 # Define the predict endpoint
 @app.post("/predict", response_model=PredictionResponse)
@@ -41,7 +59,7 @@ async def predict(request: PredictionRequest):
         if len(input_array.shape) == 1:
             input_array = np.expand_dims(input_array, axis=0)
         # Make prediction
-        predictions = model.predict(input_array)
+        predictions = model.predict(input_array) # type: ignore
         # Convert predictions to list for JSON serialization
         predictions_list = predictions.tolist()
         return PredictionResponse(prediction=predictions_list)
